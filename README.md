@@ -1,3 +1,3 @@
 # byte-camp
 
-This repo records the homework and notes of byte-camp :)
+This repository records the homework and notes of backend training camp campaigned by bytedance :)
