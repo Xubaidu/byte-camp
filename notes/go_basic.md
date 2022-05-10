@@ -66,6 +66,50 @@ func ChannelConcurrency() {
 - `go func()` 开启一个 routine 
 - `make(chan int)` 声明阻塞信道，只有读出才能写入，`make(chan int, 3)` 声明缓冲区为 `3` 的非阻塞信道，必须要关闭 `chan`，否则死锁
 
+---
+
+讨论一个 `go func()` 值传递的问题，参考如下两个代码
+
+```go
+// eg.1
+var wg sync.WaitGroup
+for i := 0; i < 3; i++ {
+    wg.Add(1)
+    go func(i int) {
+        defer wg.Done()
+        fmt.Println(i)
+    }(i)
+}
+wg.Wait()
+
+// eg.2
+var wg sync.WaitGroup
+for i := 0; i < 3; i++ {
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        fmt.Println(i)
+    }()
+}
+wg.Wait()
+```
+
+输出
+
+```go
+// eg.1
+2
+0
+1
+
+//eg.2
+3
+3
+3
+```
+
+尽量用第一个写法，因为第二个写法主线程已经走完了循环，此时 `i` 的内存值已经被写为 `3`，所以三个线程都打印 `3`
+
 
 
 ## 依赖管理 (go mod)
