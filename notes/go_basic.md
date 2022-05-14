@@ -2,9 +2,7 @@
 
 [toc]
 
-## 语言知识
-
-### 并发
+## 并发
 
 go 提倡用通信来完成内存的共享，而不是通过共享内存完成通信。
 
@@ -110,6 +108,46 @@ wg.Wait()
 
 尽量用第一个写法，因为第二个写法主线程已经走完了循环，此时 `i` 的内存值已经被写为 `3`，所以三个线程都打印 `3`
 
+## GC
+
+### 传统 GC 算法
+
+标记-清除 (Mark-Sweep)
+
+- 特点：标记完之后删除，将空闲内存加入到 free list 链表。
+- 缺点 1: 造成大量的内存碎片，导致大对象的内存分配失败。
+- 缺点 2: 有引用关系的指针在堆区的间距较远，导致局部性较差
+
+![mark-sweap](./pic/mark-sweap.jpg)
+
+标记-压缩 (Mark-Compact)
+
+- 特点：标记完之后不仅删除，还压缩。
+- 缺点：压缩需要改变活跃对象的位置，以至于需要多次扫描堆，GC 时间增加，吞吐 (`1 - gc_time / all_time`) 低。
+- 优点：不会产生碎片，优秀的局部性。
+
+![mark-compact](./pic/mark-compact.jpg)
+
+标记-复制 (Mark-Copy)
+
+- 特点：标记完之后，将活跃对象复制到新空间
+- 缺点：堆空间需求翻倍。
+- 优点：不会产生碎片，优秀的局部性，高速分配，吞吐高。
+
+![mark-copy](./pic/mark-copy.jpg)
+
+### 优化 GC 算法
+
+分代算法 (Generational GC)
+
+- 基本假设：大部分对象朝生夕死。
+- 策略：分代执行不同的 GC 算法，只有老年代的堆空间被占满，才会对老年代使用 GC。
+
+TODO: 暂时研究需求不高，之后有机会再研究
+
+### 参考
+
+[底层原理：垃圾回收算法是如何设计的？](https://developer.aliyun.com/article/777750)
 
 
 ## 依赖管理 (go mod)
@@ -310,3 +348,114 @@ func Benchmark_solve_parallel(b *testing.B) {
 ```
 
 输入命令 `go test -v -bench=. main_test.go main.go` 即可开启基准测试
+
+## 代码规范
+
+### 错误处理
+
+对于只出现一次的错误，可以用 `errors.New()` 表示简单错误，如果涉及到格式化，使用 `fmt.Errorf()`
+
+```go
+func CheckLen(len int) error {
+    if len < 0 {
+        return fmt.Errorf("len must be greater than %d", len)
+    }
+    if len > 10 {
+        return errors.New("len must be less than 10")
+    }
+    return nil
+}
+```
+
+---
+
+错误的判断，使用 `errors.Is(err, targetErr)`
+
+---
+
+`panic` 不要轻易使用，要使用和 `recover` 一起，`recover` 只能用在 `defer` 的函数中（待进一步实践，目前理解不深刻）
+
+## 性能调优
+
+### 列表和哈希表
+
+一种常见的优化策略是预分配空间，省去扩容和 `rehash` 的操作
+
+### 字符串
+
+字符串拼接，考虑 `strings.Builder, bytes.Buffer, +` 三种方式，其中 `strings.Builder` 效率最高，`+` 效率最低。这是因为 `+` 会涉及到新的字符串的内存分配，另外两种会在原基础上做 `slcie` 的扩容，测试代码如下
+
+```go
+func strcat(n int, str string) {
+	var s string
+	for i := 0; i < n; i++ {
+		s += str
+	}
+}
+
+func strBuilder(n int, str string) {
+	var builder strings.Builder
+	for i := 0; i < n; i++ {
+		builder.WriteString(str)
+	}
+}
+
+func byteBuilfer(n int, str string) {
+	buf := new(bytes.Buffer)
+	for i := 0; i < n; i++ {
+		buf.WriteString(str)
+	}
+}
+
+func BenchmarkStrcat(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		strcat(1, "a")
+	}
+}
+
+func BenchmarkStrBuilder(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		strBuilder(1, "a")
+	}
+}
+
+func BenchmarkByteBuilder(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		byteBuilfer(1, "a")
+	}
+}
+
+// go test -bench=. -benchmem main_test.go
+```
+
+原理参考 [字符串拼接性能及原理](https://geektutu.com/post/hpg-string-concat.html)
+
+### 空结构体
+
+空结构体 `struct{}` 不占据任何空间，可以用来实现 `unordered_set`
+
+```go
+type Set = map[int]struct{}
+
+func NewSet(slice []int) Set {
+	set := make(Set)
+	for _, v := range slice {
+		set[v] = struct{}{}
+	}
+	return set
+}
+
+func main() {
+	st := NewSet([]int{5, 4, 3, 2, 1})
+	for i := range st {
+		fmt.Println(i)
+	}
+}
+```
+
+### atomic 包
+
+待补
+
+- 锁通过 `os` 来实现，走系统调用
+- `atomic` 是硬件实现，效率更高（我理解是 `CAS` 那一套）
