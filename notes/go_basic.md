@@ -1,4 +1,4 @@
-# go 基础知识
+# go 后端知识
 
 [toc]
 
@@ -151,6 +151,74 @@ TODO: 暂时研究需求不高，之后有机会再研究
 
 
 ## 依赖管理 (go mod)
+
+### 包管理
+
+有三种特殊的包 import 方式。
+
+---
+
+点引入：`import . packages`，旨在忽略前缀 `packages`
+
+```go
+package main
+
+import . "fmt"
+
+func main() {
+    Println("Hello World!")
+}
+```
+
+---
+
+下换线引入：`import _ packages`，只执行 `packages` 中所有的 `init()` 函数，其它函数无法被使用
+
+```go
+package main
+
+import _ "fmt"
+
+func main() {
+    fmt.Println("Hello World!") // wrong!
+}
+```
+
+---
+
+别名引入：`import f "fmt"`，旨在添加别名
+
+```go
+package main
+
+import f "fmt"
+
+func main() {
+    f.Println("Hello World!")
+}
+```
+
+---
+
+如何引入自定义包？假设有如下包结构
+
+```go
+test
+- test1.go
+- test2.go
+main.go
+```
+
+只需要在 `main.go` 中使用如下代码，便可以引用 `test` 中的方法
+
+```go
+package main
+import "main/test"
+
+func main() {
+    ...
+}
+```
 
 ### 演变
 
@@ -387,42 +455,42 @@ func CheckLen(len int) error {
 
 ```go
 func strcat(n int, str string) {
-	var s string
-	for i := 0; i < n; i++ {
-		s += str
-	}
+    var s string
+    for i := 0; i < n; i++ {
+        s += str
+    }
 }
 
 func strBuilder(n int, str string) {
-	var builder strings.Builder
-	for i := 0; i < n; i++ {
-		builder.WriteString(str)
-	}
+    var builder strings.Builder
+    for i := 0; i < n; i++ {
+        builder.WriteString(str)
+    }
 }
 
 func byteBuilfer(n int, str string) {
-	buf := new(bytes.Buffer)
-	for i := 0; i < n; i++ {
-		buf.WriteString(str)
-	}
+    buf := new(bytes.Buffer)
+    for i := 0; i < n; i++ {
+        buf.WriteString(str)
+    }
 }
 
 func BenchmarkStrcat(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		strcat(1, "a")
-	}
+    for i := 0; i < b.N; i++ {
+        strcat(1, "a")
+    }
 }
 
 func BenchmarkStrBuilder(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		strBuilder(1, "a")
-	}
+    for i := 0; i < b.N; i++ {
+        strBuilder(1, "a")
+    }
 }
 
 func BenchmarkByteBuilder(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		byteBuilfer(1, "a")
-	}
+    for i := 0; i < b.N; i++ {
+        byteBuilfer(1, "a")
+    }
 }
 
 // go test -bench=. -benchmem main_test.go
@@ -438,18 +506,18 @@ func BenchmarkByteBuilder(b *testing.B) {
 type Set = map[int]struct{}
 
 func NewSet(slice []int) Set {
-	set := make(Set)
-	for _, v := range slice {
-		set[v] = struct{}{}
-	}
-	return set
+    set := make(Set)
+    for _, v := range slice {
+        set[v] = struct{}{}
+    }
+    return set
 }
 
 func main() {
-	st := NewSet([]int{5, 4, 3, 2, 1})
-	for i := range st {
-		fmt.Println(i)
-	}
+    st := NewSet([]int{5, 4, 3, 2, 1})
+    for i := range st {
+        fmt.Println(i)
+    }
 }
 ```
 
